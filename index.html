@@ -1,0 +1,314 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Field Capacity Dashboard</title>
+<style>
+:root{--ink:#1f2d3d;--muted:#6b7a90;--line:#e6eaf0;--bg:#f4f6fa;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+.wrap{max-width:1320px;margin:0 auto;padding:24px}
+h1{font-size:30px;margin:0 0 2px}h2{font-size:17px;margin:0 0 2px}.sub{color:var(--muted);font-size:13px;margin:2px 0 14px}
+.note{color:var(--muted);font-size:12px;line-height:1.5}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:22px;box-shadow:0 1px 2px rgba(20,40,80,.04)}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:22px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.kpi .lab{color:var(--muted);font-size:11px;font-weight:700}.kpi .big{font-size:26px;font-weight:800;margin-top:6px}
+.kpi .small{color:var(--muted);font-size:11px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:22px}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+.chartbox{position:relative;height:280px}
+.toggle{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.toggle button{border:0;background:#fff;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted)}
+.toggle button.on{background:#1f4e78;color:#fff}
+table{border-collapse:collapse;width:100%;font-size:12px}
+.cal th,.cal td{border:1px solid var(--line);padding:0;text-align:center}
+.cal td.cell{height:32px;font-weight:700;position:relative;cursor:default}
+.dots{position:absolute;bottom:2px;left:0;right:0;display:flex;gap:2px;justify-content:center}
+.dot{width:6px;height:6px;border-radius:50%}
+.cal th{background:#f7f9fc;font-size:11px;padding:5px 4px;color:var(--muted)}
+.cal td.lbl{font-weight:700;text-align:left;padding:6px 8px;background:#fafbfe;white-space:nowrap}
+.cal td.ent{font-weight:700;font-size:11px;writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;background:#f2f6fb}
+.legend{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:12px;margin-top:8px}
+.lg{display:flex;gap:6px;align-items:center}.sw{width:13px;height:13px;border-radius:3px}
+.rank{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 26px}
+.rk{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding:6px 2px}
+.rk .nm{font-weight:600}.rk .cl{color:var(--muted);font-size:11px}.rk .rt{font-weight:800;color:#2563b0}
+.take{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.take .t{border-left:3px solid #2563b0;padding:6px 12px;font-size:13px;color:#34465c}
+small.cap{color:var(--muted)}
+#tip{position:fixed;pointer-events:none;background:#1f2d3d;color:#fff;font-size:12px;padding:8px 10px;border-radius:8px;opacity:0;transition:opacity .08s;z-index:99;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:240px}
+#tip b{display:block;margin-bottom:3px}
+.foot{color:var(--muted);font-size:11px;margin-top:6px}
+</style></head><body><div class="wrap">
+<div id="tip"></div>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap">
+<div><h1>Field Capacity Dashboard</h1><div class="sub" id="sub"></div></div>
+<div class="note" style="max-width:430px">Each person-day counted once: Real Work, Overhead, PTO, Global Holiday, Unbooked.
+Departments: EEM Field Team, Field Trainer, LOTO Department. Entity = Timesheet Approver group
+(Kyle Smith → Herzig Engineering; Brian Ward / Emilee Trask → Martin Technical). Weekends excluded.
+<b>*</b> marks a partial month at the window edge.</div>
+</div>
+
+<div class="panel" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+<b style="font-size:13px">View entity:</b>
+<div class="toggle" id="entToggle"></div>
+<span class="note" id="entInfo"></span>
+</div>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="panel"><div class="grid2">
+<div><h2>Overall Monthly Capacity Mix</h2><div class="chartbox"><canvas id="cOverall"></canvas></div></div>
+<div><h2>Entity Comparison — Monthly Booked %</h2><div class="chartbox"><canvas id="cEntity"></canvas></div></div>
+</div><div class="legend" id="legend"></div><div class="foot" id="foot1"></div></div>
+
+<div class="panel"><h2>Monthly Mix by Department</h2><div class="sub">Within current entity selection.</div>
+<div class="grid3">
+<div><div class="chartbox" style="height:240px"><canvas id="cEEM"></canvas></div></div>
+<div><div class="chartbox" style="height:240px"><canvas id="cTRN"></canvas></div></div>
+<div><div class="chartbox" style="height:240px"><canvas id="cLOTO"></canvas></div></div>
+</div><div class="foot" id="foot2"></div></div>
+
+<div class="panel"><div class="grid2">
+<div><h2>Herzig Engineering — Monthly Mix</h2><div class="chartbox"><canvas id="cENT0"></canvas></div></div>
+<div><h2>Martin Technical — Monthly Mix</h2><div class="chartbox"><canvas id="cENT1"></canvas></div></div>
+</div><div class="foot" id="foot3"></div></div>
+
+<div class="panel">
+<h2>Weekly Capacity Calendar</h2><div class="sub">Booked % of available weekdays per week. Grouped by department → entity → person. Hover a cell for the category breakdown.</div>
+<div style="overflow-x:auto"><table class="cal" id="cal"></table></div>
+<div class="legend" id="heatlegend" style="margin-top:12px"></div>
+</div>
+
+<div class="panel"><h2>Average Booked Rate by Person</h2><div class="sub">Non-open person-days ÷ available weekdays, full window. Grouped by entity.</div>
+<div class="rank" id="rank"></div></div>
+
+<div class="panel"><h2>Leadership Takeaways</h2><div class="take" id="take"></div></div>
+<div class="note" style="text-align:center">Generated from Salesforce • Herzig Engineering &nbsp;·&nbsp; <b>Last updated: Jun 29, 2026</b></div>
+</div>
+<script>
+// ── Mini Canvas Chart (replaces Chart.js) ──────────────────────────────────
+(function(){
+const _tip=()=>document.getElementById('tip');
+class Chart{
+  constructor(canvas,cfg){
+    this.canvas=canvas; this.cfg=cfg;
+    this.stacked=!!(cfg.options&&cfg.options.scales&&cfg.options.scales.x&&cfg.options.scales.x.stacked);
+    this._bars=[];
+    this._mm=this._onMM.bind(this);
+    this._ml=()=>{const t=_tip();if(t)t.style.opacity=0;};
+    canvas.addEventListener('mousemove',this._mm);
+    canvas.addEventListener('mouseleave',this._ml);
+    this._ro=new ResizeObserver(()=>this.draw());
+    this._ro.observe(canvas.parentElement||canvas);
+    this.draw();
+  }
+  destroy(){
+    this.canvas.removeEventListener('mousemove',this._mm);
+    this.canvas.removeEventListener('mouseleave',this._ml);
+    this._ro.disconnect();
+  }
+  draw(){
+    const canvas=this.canvas, par=canvas.parentElement||canvas;
+    const W=par.clientWidth||400, H=par.clientHeight||280;
+    canvas.width=W; canvas.height=H;
+    const ctx=canvas.getContext('2d');
+    ctx.clearRect(0,0,W,H);
+    const labels=this.cfg.data.labels, ds=this.cfg.data.datasets;
+    const maxY=(this.cfg.options&&this.cfg.options.scales&&this.cfg.options.scales.y&&this.cfg.options.scales.y.max)||100;
+    const hasLegend=this.cfg.options&&this.cfg.options.plugins&&this.cfg.options.plugins.legend&&this.cfg.options.plugins.legend.position==='bottom';
+    const P={t:14,r:10,b:hasLegend?54:36,l:42};
+    const cW=W-P.l-P.r, cH=H-P.t-P.b;
+    // y-axis grid + labels
+    ctx.font='10px -apple-system,Segoe UI,sans-serif';
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    for(let v=0;v<=maxY;v+=25){
+      const y=P.t+cH*(1-v/maxY);
+      ctx.strokeStyle=v===0?'#ccc':'#e6eaf0'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(P.l,y); ctx.lineTo(P.l+cW,y); ctx.stroke();
+      ctx.fillStyle='#6b7a90'; ctx.fillText(v+'%',P.l-4,y);
+    }
+    this._bars=[];
+    if(this.stacked){
+      const gW=cW/labels.length, bW=Math.min(gW*0.65,60);
+      labels.forEach((lbl,mi)=>{
+        let yBase=P.t+cH;
+        const cx=P.l+gW*(mi+0.5);
+        ds.forEach(d=>{
+          const val=d.data[mi]||0, bH=(val/maxY)*cH, by=yBase-bH;
+          ctx.fillStyle=d.backgroundColor;
+          if(bH>0.5) ctx.fillRect(cx-bW/2,by,bW,bH);
+          this._bars.push({x:cx-bW/2,y:by,w:bW,h:Math.max(bH,2),label:lbl,value:val,dl:d.label,mi});
+          yBase=by;
+        });
+        ctx.fillStyle='#6b7a90'; ctx.textAlign='center'; ctx.textBaseline='top';
+        ctx.fillText(lbl,cx,P.t+cH+6);
+      });
+    } else {
+      const nD=ds.length, gW=cW/labels.length, gap=3;
+      const bW=Math.min((gW-gap*(nD+1))/nD,48);
+      labels.forEach((lbl,mi)=>{
+        const cx=P.l+gW*(mi+0.5), tot=nD*bW+(nD-1)*gap;
+        ds.forEach((d,di)=>{
+          const val=d.data[mi]||0, bH=(val/maxY)*cH;
+          const bx=cx-tot/2+di*(bW+gap), by=P.t+cH-bH;
+          ctx.fillStyle=d.backgroundColor||d.borderColor;
+          if(bH>0.5) ctx.fillRect(bx,by,bW,bH);
+          this._bars.push({x:bx,y:by,w:bW,h:Math.max(bH,2),label:lbl,value:val,dl:d.label,mi});
+        });
+        ctx.fillStyle='#6b7a90'; ctx.textAlign='center'; ctx.textBaseline='top';
+        ctx.fillText(lbl,cx,P.t+cH+6);
+      });
+    }
+    if(hasLegend){
+      let lx=P.l; const ly=H-10;
+      ctx.font='11px -apple-system,Segoe UI,sans-serif'; ctx.textBaseline='middle';
+      ds.forEach(d=>{
+        ctx.fillStyle=d.backgroundColor||d.borderColor;
+        ctx.fillRect(lx,ly-6,12,12);
+        ctx.fillStyle='#444'; ctx.textAlign='left';
+        ctx.fillText(d.label,lx+16,ly);
+        lx+=ctx.measureText(d.label).width+32;
+      });
+    }
+  }
+  _onMM(e){
+    const r=this.canvas.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+    let hit=null;
+    for(const b of this._bars){if(mx>=b.x&&mx<=b.x+b.w&&my>=b.y&&my<=b.y+b.h){hit=b;break;}}
+    const t=_tip(); if(!t) return;
+    if(hit){
+      let html;
+      if(this.stacked){
+        const same=this._bars.filter(b=>b.mi===hit.mi);
+        html='<b>'+hit.label+'</b><br>'+same.map(b=>b.dl+': '+b.value.toFixed(1)+'%').join('<br>');
+      } else {
+        html='<b>'+hit.label+'</b><br>'+hit.dl+': '+hit.value.toFixed(1)+'% booked';
+      }
+      t.innerHTML=html; t.style.opacity=1;
+      t.style.left=Math.min(e.clientX+14,innerWidth-254)+'px';
+      t.style.top=(e.clientY+14)+'px';
+    } else { t.style.opacity=0; }
+  }
+}
+window.Chart=Chart;
+})();
+</script>
+
+<script>
+const D={"window": "Jul 05, 2026 \u2013 Oct 03, 2026", "cats": ["Real Work", "Overhead", "PTO", "Global Holiday", "Unbooked"], "colors": {"Real Work": "#2563b0", "Overhead": "#e8912a", "PTO": "#2e9e4f", "Global Holiday": "#d6342c", "Unbooked": "#9b7cc4"}, "dept_order": ["EEM Field Team", "Field Trainer", "LOTO Department"], "entity_order": ["Herzig Engineering", "Martin Technical"], "entity_colors": {"Herzig Engineering": "#1f4e78", "Martin Technical": "#b5651d"}, "months": [{"key": "2026-07", "label": "Jul 2026*", "note": "in window Jul 06\u2013Jul 31 of 23 weekdays", "partial": true, "days": 20, "full": 23}, {"key": "2026-08", "label": "Aug 2026", "note": "full month", "partial": false, "days": 21, "full": 21}, {"key": "2026-09", "label": "Sep 2026", "note": "full month", "partial": false, "days": 22, "full": 22}, {"key": "2026-10", "label": "Oct 2026*", "note": "in window Oct 01\u2013Oct 02 of 22 weekdays", "partial": true, "days": 2, "full": 22}], "weeks": ["Jul 05", "Jul 12", "Jul 19", "Jul 26", "Aug 02", "Aug 09", "Aug 16", "Aug 23", "Aug 30", "Sep 06", "Sep 13", "Sep 20", "Sep 27"], "persons": [{"name": "Aaron Ernzen", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[20, 0, 0, 0, 0], [17, 0, 0, 0, 4], [21, 0, 0, 1, 0], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [2, 0, 0, 0, 3], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [3, 0, 0, 0, 2]]}, {"name": "Bill Ennis", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[1, 0, 0, 0, 19], [0, 0, 0, 0, 21], [0, 0, 0, 1, 21], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [1, 0, 0, 0, 4], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Brandon Kennon", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[19, 0, 1, 0, 0], [21, 0, 0, 0, 0], [17, 0, 0, 1, 4], [0, 0, 0, 0, 2]], "pw": [[4, 0, 1, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [3, 0, 0, 1, 1], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Brandon Myers", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[19, 0, 1, 0, 0], [21, 0, 0, 0, 0], [16, 0, 0, 1, 5], [0, 0, 0, 0, 2]], "pw": [[4, 0, 1, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Brian Dolinar", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[20, 0, 0, 0, 0], [16, 0, 0, 0, 5], [18, 0, 0, 1, 3], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Bryant Woodard", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[15, 0, 0, 0, 5], [13, 0, 0, 0, 8], [11, 0, 0, 1, 10], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [0, 0, 0, 0, 5], [4, 0, 0, 1, 0], [2, 0, 0, 0, 3], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Carlos Oropeza", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[19, 0, 1, 0, 0], [20, 0, 0, 0, 1], [7, 0, 7, 1, 7], [0, 0, 0, 0, 2]], "pw": [[4, 0, 1, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [4, 0, 0, 1, 0], [3, 0, 0, 0, 2], [0, 0, 5, 0, 0], [0, 0, 2, 0, 3]]}, {"name": "Eddie Husted", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[20, 0, 0, 0, 0], [9, 0, 5, 0, 7], [17, 0, 0, 1, 4], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 5, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5]]}, {"name": "Hans Fox", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[20, 0, 0, 0, 0], [15, 0, 0, 0, 6], [16, 0, 0, 1, 5], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [0, 0, 0, 1, 4], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [2, 0, 0, 0, 3]]}, {"name": "Jason Aguilar", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[15, 0, 5, 0, 0], [16, 0, 0, 0, 5], [11, 0, 0, 1, 10], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [0, 0, 5, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [4, 0, 0, 1, 0], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Joseph Andersen", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[0, 5, 0, 0, 15], [0, 0, 0, 0, 21], [0, 0, 0, 1, 21], [0, 0, 0, 0, 2]], "pw": [[0, 5, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Justin Betterton", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[19, 0, 1, 0, 0], [13, 0, 4, 0, 4], [18, 0, 0, 1, 3], [2, 0, 0, 0, 0]], "pw": [[4, 0, 1, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [2, 0, 2, 0, 1], [0, 0, 2, 0, 3], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [2, 0, 0, 0, 3], [5, 0, 0, 0, 0]]}, {"name": "Leyton Shireman", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[20, 0, 0, 0, 0], [20, 0, 0, 0, 1], [4, 0, 0, 1, 17], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [4, 0, 0, 1, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Max Desir", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[0, 0, 1, 0, 19], [0, 0, 0, 0, 21], [0, 0, 0, 1, 21], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 1, 0, 4], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Ralph Childers", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[5, 0, 0, 0, 15], [0, 0, 0, 0, 21], [0, 0, 0, 1, 21], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Ricardo Gonzalez", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[17, 0, 0, 0, 3], [21, 0, 0, 0, 0], [18, 0, 0, 1, 3], [2, 0, 0, 0, 0]], "pw": [[5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [2, 0, 0, 0, 3], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0]]}, {"name": "Robert Arbuckle", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[20, 0, 0, 0, 0], [10, 0, 1, 0, 10], [11, 0, 3, 1, 7], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 1, 0, 4], [0, 0, 0, 0, 5], [3, 0, 0, 0, 2], [4, 0, 0, 1, 0], [0, 0, 2, 0, 3], [4, 0, 1, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Roger Cox", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[20, 0, 0, 0, 0], [21, 0, 0, 0, 0], [16, 0, 2, 1, 3], [2, 0, 0, 0, 0]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [0, 0, 2, 0, 3], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0]]}, {"name": "Todd Dorman", "cls": "EEM Field Team", "ent": "Herzig Engineering", "app": "Kyle Smith", "pm": [[19, 0, 0, 0, 1], [18, 0, 1, 0, 2], [14, 0, 3, 1, 4], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [4, 0, 1, 0, 0], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [3, 0, 2, 0, 0], [3, 0, 1, 0, 1], [0, 0, 0, 0, 5]]}, {"name": "Samuel Scott", "cls": "EEM Field Team", "ent": "Martin Technical", "app": "Emilee Trask", "pm": [[19, 1, 0, 0, 0], [4, 0, 0, 0, 17], [18, 0, 0, 1, 3], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [4, 1, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [3, 0, 0, 0, 2], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Thomas Rice", "cls": "EEM Field Team", "ent": "Martin Technical", "app": "Emilee Trask", "pm": [[13, 0, 5, 0, 2], [10, 0, 0, 0, 11], [9, 0, 0, 1, 12], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [0, 0, 5, 0, 0], [5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Trevor Collins", "cls": "EEM Field Team", "ent": "Martin Technical", "app": "Emilee Trask", "pm": [[17, 0, 0, 0, 3], [13, 0, 6, 0, 2], [17, 0, 0, 1, 4], [2, 0, 0, 0, 0]], "pw": [[5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [3, 0, 1, 0, 1], [0, 0, 5, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0]]}, {"name": "Johnny Craps", "cls": "Field Trainer", "ent": "Martin Technical", "app": "Emilee Trask", "pm": [[6, 0, 0, 0, 14], [4, 0, 0, 0, 17], [0, 0, 0, 1, 21], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [2, 0, 0, 0, 3], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Scott Simonds", "cls": "Field Trainer", "ent": "Martin Technical", "app": "Emilee Trask", "pm": [[0, 0, 0, 0, 20], [2, 0, 0, 0, 19], [0, 0, 0, 1, 21], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [2, 0, 0, 0, 3], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Brandon Thompson", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[14, 0, 0, 0, 6], [1, 0, 6, 0, 14], [18, 0, 0, 1, 3], [0, 0, 0, 0, 2]], "pw": [[4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 1, 0, 4], [0, 0, 5, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Charles Hystad", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[12, 2, 0, 0, 6], [0, 0, 6, 0, 15], [0, 0, 6, 1, 15], [0, 0, 0, 0, 2]], "pw": [[2, 2, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 5, 0, 0], [0, 0, 1, 0, 4], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [0, 0, 1, 0, 4], [0, 0, 5, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Cody Drake", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[19, 0, 0, 0, 1], [10, 0, 0, 0, 11], [12, 0, 0, 1, 9], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [3, 0, 0, 0, 2]]}, {"name": "Corey Hamiliton", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[10, 0, 0, 0, 10], [16, 0, 0, 0, 5], [12, 0, 0, 1, 9], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 1, 4], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [3, 0, 0, 0, 2]]}, {"name": "Dakota Chambers", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[14, 0, 4, 0, 2], [10, 0, 0, 0, 11], [11, 0, 0, 1, 10], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [0, 0, 4, 0, 1], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [2, 0, 0, 0, 3]]}, {"name": "Deangelo Word", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[14, 0, 0, 0, 6], [16, 0, 0, 0, 5], [14, 7, 0, 1, 0], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 4, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 3, 0, 0, 2]]}, {"name": "Devin Oubre", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[5, 0, 0, 0, 15], [9, 0, 0, 0, 12], [10, 0, 0, 1, 11], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Kenneth Stoecklin", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[18, 0, 0, 0, 2], [13, 0, 0, 0, 8], [9, 0, 3, 1, 9], [0, 0, 2, 0, 0]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [0, 0, 2, 0, 3], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 3, 0, 2]]}, {"name": "Matthew Powers", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[17, 0, 0, 0, 3], [10, 0, 0, 0, 11], [10, 0, 0, 1, 11], [0, 0, 0, 0, 2]], "pw": [[2, 0, 0, 0, 3], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Michael Bundy", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[14, 0, 0, 0, 6], [15, 0, 0, 0, 6], [0, 0, 9, 1, 12], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 4, 1, 0], [0, 0, 5, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}, {"name": "Michael Oubre", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[14, 0, 0, 0, 6], [10, 0, 5, 0, 6], [10, 0, 0, 1, 11], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 5, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 1, 4], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Seth Magill", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[14, 0, 0, 0, 6], [10, 0, 0, 0, 11], [18, 0, 0, 1, 3], [0, 0, 0, 0, 2]], "pw": [[4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Timothy Stitch", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[10, 0, 0, 0, 10], [16, 0, 0, 0, 5], [14, 0, 0, 1, 7], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 1, 4], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Travis Eaves", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[9, 0, 0, 0, 11], [17, 0, 0, 0, 4], [4, 0, 7, 1, 10], [0, 0, 0, 0, 2]], "pw": [[0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [1, 0, 0, 0, 4], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 1, 1, 3], [0, 0, 5, 0, 0], [0, 0, 1, 0, 4], [0, 0, 0, 0, 5]]}, {"name": "Travis Stoecklin", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[14, 0, 5, 0, 1], [11, 0, 0, 0, 10], [11, 0, 0, 1, 10], [0, 0, 0, 0, 2]], "pw": [[0, 0, 5, 0, 0], [5, 0, 0, 0, 0], [4, 0, 0, 0, 1], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [2, 0, 0, 0, 3], [0, 0, 0, 1, 4], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5]]}, {"name": "Vijay Kumar", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[10, 0, 8, 0, 2], [8, 0, 3, 0, 10], [12, 0, 0, 1, 9], [0, 0, 0, 0, 2]], "pw": [[0, 0, 4, 0, 1], [0, 0, 4, 0, 1], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 2, 0, 3], [0, 0, 1, 0, 4], [3, 0, 0, 0, 2], [0, 0, 0, 0, 5], [4, 0, 0, 1, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [3, 0, 0, 0, 2]]}, {"name": "Ziven Macarrty", "cls": "LOTO Department", "ent": "Martin Technical", "app": "Brian Ward", "pm": [[14, 0, 0, 0, 6], [13, 0, 0, 0, 8], [5, 0, 3, 1, 13], [0, 0, 0, 0, 2]], "pw": [[5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [4, 0, 0, 0, 1], [0, 0, 0, 0, 5], [5, 0, 0, 0, 0], [5, 0, 0, 0, 0], [3, 0, 0, 0, 2], [0, 0, 3, 0, 2], [0, 0, 0, 1, 4], [5, 0, 0, 0, 0], [0, 0, 0, 0, 5], [0, 0, 0, 0, 5]]}]};
+const CATS=D.cats, COL=D.colors, NM=D.months.map(m=>m.label);
+let ENT="All";
+const tip=document.getElementById('tip');
+document.getElementById('sub').textContent='Deduplicated workday utilization • '+D.window;
+// toggle
+const ents=["All"].concat(D.entity_order);
+document.getElementById('entToggle').innerHTML=ents.map(e=>`<button data-e="${e}">${e}</button>`).join('');
+document.querySelectorAll('#entToggle button').forEach(b=>b.onclick=()=>{ENT=b.dataset.e;render();});
+// helpers
+const sel=()=> ENT==="All"?D.persons:D.persons.filter(p=>p.ent===ENT);
+function sumMix(ps,proj){ // proj(person)-> array of [cat...] per month
+ const out=D.months.map(()=>CATS.map(()=>0));
+ ps.forEach(p=>proj(p).forEach((mo,mi)=>mo.forEach((v,ci)=>out[mi][ci]+=v)));
+ return out;
+}
+const monthMix=ps=>sumMix(ps,p=>p.pm);
+function pct(mix){return mix.map(mo=>{const t=mo.reduce((a,b)=>a+b,0)||1;return mo.map(v=>v/t*100);});}
+function bookedRate(ps){let b=0,t=0;ps.forEach(p=>p.pm.forEach(mo=>{const s=mo.reduce((a,b)=>a+b,0);t+=s;b+=s-mo[4];}));return [b,t,t?b/t:0];}
+const charts={};
+function stack(id,mix){
+ const P=pct(mix);
+ const ds=CATS.map((c,ci)=>({label:c,data:P.map(mo=>mo[ci]),backgroundColor:COL[c]}));
+ if(charts[id])charts[id].destroy();
+ charts[id]=new Chart(document.getElementById(id),{type:'bar',data:{labels:NM,datasets:ds},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},
+   tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'%'}}},
+   scales:{x:{stacked:true},y:{stacked:true,max:100,ticks:{callback:v=>v+'%'}}}}});
+}
+function heat(p){if(p>=1)return['#1a7a3a','#fff'];if(p>=.75)return['#4caf50','#fff'];if(p>=.5)return['#8bc34a','#222'];if(p>=.25)return['#f5e08a','#222'];if(p>0)return['#f6ddc9','#222'];return['#eeeeee','#999'];}
+function render(){
+ document.querySelectorAll('#entToggle button').forEach(b=>b.classList.toggle('on',b.dataset.e===ENT));
+ const ps=sel();
+ // KPIs
+ let tot=0,unb=0,real=0;ps.forEach(p=>p.pm.forEach(mo=>{tot+=mo.reduce((a,b)=>a+b,0);unb+=mo[4];real+=mo[0];}));
+ const full=tot-unb;
+ const er={};D.entity_order.forEach(e=>er[e]=bookedRate(D.persons.filter(p=>p.ent===e)));
+ const deptRate=cl=>{const[b,t,rt]=bookedRate(ps.filter(p=>p.cls===cl));return rt;};
+ const kp=[['Total Available Workdays',tot.toLocaleString(),ENT==="All"?'all entities':ENT],
+  ['Full Booked Days',full.toLocaleString(),(tot?(full/tot*100).toFixed(1):0)+'%'],
+  ['Real Work Days',real.toLocaleString(),(tot?(real/tot*100).toFixed(1):0)+'%'],
+  ['EEM Booked Rate',(deptRate('EEM Field Team')*100).toFixed(1)+'%',''],
+  ['Herzig Booked Rate',(er['Herzig Engineering']?(er['Herzig Engineering'][2]*100).toFixed(1):'–')+'%',er['Herzig Engineering']?er['Herzig Engineering'][0]+' / '+er['Herzig Engineering'][1]:''],
+  ['Martin Booked Rate',(er['Martin Technical']?(er['Martin Technical'][2]*100).toFixed(1):'–')+'%',er['Martin Technical']?er['Martin Technical'][0]+' / '+er['Martin Technical'][1]:'']];
+ document.getElementById('kpis').innerHTML=kp.map(k=>`<div class="kpi"><div class="lab">${k[0]}</div><div class="big">${k[1]}</div><div class="small">${k[2]}</div></div>`).join('');
+ document.getElementById('legend').innerHTML=CATS.map(c=>`<div class="lg"><span class="sw" style="background:${COL[c]}"></span>${c}</div>`).join('');
+ // charts
+ stack('cOverall',monthMix(ps));
+ stack('cEEM',monthMix(ps.filter(p=>p.cls==='EEM Field Team')));
+ stack('cTRN',monthMix(ps.filter(p=>p.cls==='Field Trainer')));
+ stack('cLOTO',monthMix(ps.filter(p=>p.cls==='LOTO Department')));
+ document.getElementById('cEEM').parentElement.previousElementSibling;
+ // entity comparison: booked % per month per entity (line/bar)
+ const eds=D.entity_order.map((e,i)=>{
+   const mx=monthMix(D.persons.filter(p=>p.ent===e));
+   return {label:e,data:mx.map(mo=>{const t=mo.reduce((a,b)=>a+b,0)||1;return (t-mo[4])/t*100;}),
+           backgroundColor:D.entity_colors[e],borderColor:D.entity_colors[e]};
+ });
+ if(charts['cEntity'])charts['cEntity'].destroy();
+ charts['cEntity']=new Chart(document.getElementById('cEntity'),{type:'bar',data:{labels:NM,datasets:eds},
+   options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'},
+   tooltip:{callbacks:{label:c=>c.dataset.label+': '+c.parsed.y.toFixed(1)+'% booked'}}},
+   scales:{y:{max:100,ticks:{callback:v=>v+'%'}}}}});
+ // per-entity monthly mix (always both, independent of toggle)
+ stack('cENT0',monthMix(D.persons.filter(p=>p.ent===D.entity_order[0])));
+ stack('cENT1',monthMix(D.persons.filter(p=>p.ent===(D.entity_order[1]||D.entity_order[0]))));
+ // calendar grouped dept->entity->person
+ const grp={};ps.forEach(p=>{(grp[p.cls]=grp[p.cls]||{});(grp[p.cls][p.ent]=grp[p.cls][p.ent]||[]).push(p);});
+ let h='<tr><th>Dept</th><th>Entity</th><th>Person</th>'+D.weeks.map(w=>`<th>${w}</th>`).join('')+'</tr>';
+ D.dept_order.forEach(cl=>{ if(!grp[cl])return;
+   const deptN=Object.values(grp[cl]).reduce((a,arr)=>a+arr.length,0); let deptFirst=true;
+   D.entity_order.forEach(e=>{ const arr=(grp[cl][e]||[]); if(!arr.length)return;
+     arr.forEach((p,pi)=>{
+       h+='<tr>';
+       if(deptFirst){h+=`<td class="lbl" rowspan="${deptN}">${cl}</td>`;deptFirst=false;}
+       if(pi===0){h+=`<td class="ent" rowspan="${arr.length}">${e.split(' ')[0]}</td>`;}
+       h+=`<td class="lbl">${p.name}</td>`;
+       p.pw.forEach((wk,wi)=>{ const t=wk.reduce((a,b)=>a+b,0)||1; const b=t-wk[4]; const rt=b/t;
+         const[bg,fg]=heat(rt); const dots=CATS.slice(0,4).map((c,ci)=>wk[ci]>0?`<span class="dot" style="background:${COL[c]}"></span>`:'').join('');
+         const det=CATS.map((c,ci)=>`${c}: ${(wk[ci]/t*100).toFixed(0)}%`).join('|');
+         h+=`<td class="cell" style="background:${bg};color:${fg}" data-tip="${p.name} · ${D.weeks[wi]}|${det}">${Math.round(rt*100)}%<div class="dots">${dots}</div></td>`;
+       });
+       h+='</tr>';
+     });
+   });
+ });
+ document.getElementById('cal').innerHTML=h;
+ const hs=[['100%','#1a7a3a'],['75-99%','#4caf50'],['50-74%','#8bc34a'],['25-49%','#f5e08a'],['1-24%','#f6ddc9'],['0%','#eeeeee']];
+ document.getElementById('heatlegend').innerHTML='<b style="font-size:12px">Booked % heat:</b>'+hs.map(x=>`<div class="lg"><span class="sw" style="background:${x[1]}"></span>${x[0]}</div>`).join('');
+ // ranking grouped by entity
+ const rk=ps.map(p=>{const[b,t,rt]=bookedRate([p]);return {name:p.name,cls:p.cls,ent:p.ent,rate:rt*100};}).sort((a,b)=>b.rate-a.rate);
+ document.getElementById('rank').innerHTML=rk.map((p,i)=>`<div class="rk"><div><span class="nm">${i+1}. ${p.name}</span> <span class="cl">(${p.cls} · ${p.ent.split(' ')[0]})</span></div><div class="rt">${p.rate.toFixed(1)}%</div></div>`).join('');
+ // entity info
+ document.getElementById('entInfo').textContent=`${ps.length} roles in view`+(ENT!=="All"?` (${ENT})`:` across ${D.entity_order.length} entities`);
+ // partial footnote
+ const parts=D.months.filter(m=>m.partial).map(m=>`${m.label} (${m.note})`);
+ const ft=parts.length?('* Partial month at window edge — '+parts.join('; ')):'All months fully covered.';
+ ['foot1','foot2','foot3'].forEach(id=>document.getElementById(id).textContent=ft);
+ // takeaways
+ const eem=deptRate('EEM Field Team')*100,loto=deptRate('LOTO Department')*100,trn=deptRate('Field Trainer')*100;
+ const mrate=monthMix(ps).map(mo=>{const t=mo.reduce((a,b)=>a+b,0)||1;return (t-mo[4])/t*100;});
+ let bi=0,wi=0;mrate.forEach((v,i)=>{if(v>mrate[bi])bi=i;if(v<mrate[wi])wi=i;});
+ const he=er['Herzig Engineering'],mt=er['Martin Technical'];
+ const tk=[
+  `Strongest month: <b>${NM[bi]}</b> at ${mrate[bi].toFixed(1)}% booked; lowest ${NM[wi]} at ${mrate[wi].toFixed(1)}%.`,
+  he&&mt?`Entity split: <b>Herzig ${(he[2]*100).toFixed(1)}%</b> vs Martin ${(mt[2]*100).toFixed(1)}% booked across the window.`:'',
+  `By team: EEM ${eem.toFixed(1)}% · LOTO ${loto.toFixed(1)}% · Trainers ${trn.toFixed(1)}%.`,
+  `${rk.length?('Top: <b>'+rk[0].name+'</b> at '+rk[0].rate.toFixed(1)+'% — '+rk.filter(p=>p.rate<25).length+' roles under 25%.'):''}`
+ ].filter(Boolean);
+ document.getElementById('take').innerHTML=tk.map(t=>`<div class="t">${t}</div>`).join('');
+}
+// tooltip
+document.addEventListener('mousemove',e=>{
+ const c=e.target.closest('.cell');
+ if(c&&c.dataset.tip){const[hd,body]=c.dataset.tip.split('|',1).concat([c.dataset.tip.split('|').slice(1).join('<br>')]);
+   tip.innerHTML='<b>'+hd+'</b>'+body;tip.style.opacity=1;tip.style.left=Math.min(e.clientX+14,innerWidth-250)+'px';tip.style.top=(e.clientY+14)+'px';}
+ else tip.style.opacity=0;
+});
+render();
+</script></body></html>
